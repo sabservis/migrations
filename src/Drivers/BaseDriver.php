@@ -123,69 +123,10 @@ abstract class BaseDriver implements IDriver
 			$q = substr($content, $queryOffset, $queryLength);
 
 			$queries++;
-			foreach ($this->divideSqlQueries($q) as $subQuery) {
-				$this->dbal->exec($subQuery);
-			}
-
+			$this->dbal->exec($q);
 			$queryOffset = $parseOffset;
 		}
 
 		return $queries;
 	}
-
-    /**
-     * Divide alter table query to more queries
-     * @return string[]
-     */
-    private function divideSqlQueries(string $sql): array
-    {
-        $queries = explode(";", $sql);
-        $alterColumnQueries = [];
-        $foreignKeyQueries = [];
-        $otherQueries = [];
-
-        foreach ($queries as $query) {
-            $query = trim($query);
-            if (empty($query)) continue;
-
-            // Check if it is an ALTER TABLE statement
-            if (stripos($query, "ALTER TABLE") !== false) {
-                // Split by commas to check for multiple ADD commands in a single statement
-                $subCommands = explode(",", $query);
-                $tableName = "";
-
-                foreach ($subCommands as $subCmd) {
-                    $subCmd = trim($subCmd);
-
-                    // Extract table name from "ALTER TABLE `table_name`"
-                    if (stripos($subCmd, "ALTER TABLE") !== false) {
-                        preg_match('/ALTER TABLE `?([a-zA-Z0-9_]+)`?/i', $subCmd, $matches);
-                        $tableName = $matches[1] ?? "";
-                    }
-
-                    if (stripos($subCmd, "ADD FOREIGN KEY") !== false) {
-                        $foreignKeyQueries[] = self::prepareAlterTableQuery($subCmd, $tableName);
-                    } else {
-                        $alterColumnQueries[] = self::prepareAlterTableQuery($subCmd, $tableName);
-                    }
-                }
-            } else {
-                // Normal queries (CREATE, INSERT, etc.)
-                $otherQueries[] = $query . ";";
-            }
-        }
-
-
-        return array_merge($otherQueries, $alterColumnQueries, $foreignKeyQueries);
-    }
-
-
-    private function prepareAlterTableQuery(string $subCmd, $tableName): string
-    {
-        if (strpos($subCmd, "ALTER TABLE") === 0) {
-            return $subCmd;
-        }
-
-        return "ALTER TABLE `$tableName` " . $subCmd . ";";
-    }
 }
