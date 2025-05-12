@@ -28,9 +28,11 @@ class MySqlImporter {
         }
     }
 
-    private function addError($errorStr){
+    private function addError(string $errorStr): void
+    {
         $this->hadErrors = true;
         $this->errors[] = $errorStr;
+        throw new \Exception($errorStr);
     }
 
     public function doImport($sqlFile, $database = "", $createDB = false, $dropDB = false) {
