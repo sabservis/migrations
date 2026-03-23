@@ -63,21 +63,36 @@ class MySqlImporter {
                     $sqlFile = str_replace("\r","\n",$sqlFile);
                     $lines = preg_split("/\n/", $sqlFile);
                     $queryStr = "";
+                    $delimiter = ";";
                     foreach($lines as $line){
                         $lt_line = ltrim($line);
                         $t_queryStr = trim($queryStr);
+                        // handle DELIMITER directive
+                        if (preg_match('/^DELIMITER\s+(\S+)\s*$/i', $lt_line, $m)) {
+                            $delimiter = $m[1];
+                            continue;
+                        }
                         if (1==preg_match("/^#|^\-\-/",$lt_line) && $t_queryStr == ""){
                             continue; // skip one-line comments
                         }
                         $queryStr .= $line."\n"; // append the line to the current query
                         $t_line = rtrim($lt_line);
-                        if (1!==preg_match("/;$/",$t_line)){
+                        $delimiterEscaped = preg_quote($delimiter, '/');
+                        if (1!==preg_match("/{$delimiterEscaped}$/",$t_line)){
                             continue; // skip incomplete statement
                         }
                         if (substr_count($queryStr,"/*")!=substr_count($queryStr,"*/")){
                             continue; // skip incomplete statement (hack for multiline comments)
                         }
+                        // remove the custom delimiter from the end of the query
                         $queryStr = trim($queryStr);
+                        if ($delimiter !== ";") {
+                            $queryStr = preg_replace("/{$delimiterEscaped}$/", "", $queryStr);
+                            $queryStr = trim($queryStr);
+                        }
+                        if ($queryStr === "") {
+                            continue;
+                        }
                         if (!$this->conn->query($queryStr)){
                             $this->addError("Query error (".$this->conn->errno.") ".$this->conn->error."\r\n\r\nOriginal Query:\r\n\r\n".$queryStr);
                         }
